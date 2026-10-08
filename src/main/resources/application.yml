@@ -1,0 +1,42 @@
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+spring:
+  application:
+    name: hse-iot-demo
+  # 默认启用 local profile: 从项目根目录的 application-local.yml 读取账号密码(该文件不入库),
+  # 也可以用环境变量 IOT_USERNAME / IOT_PASSWORD 覆盖。
+  profiles:
+    default: local
+  jackson:
+    default-property-inclusion: non_null
+
+logging:
+  level:
+    com.cmeim.hse: INFO
+
+iot:
+  base-url: https://iot.cme-im.com
+  username: "${IOT_USERNAME:}"
+  password: "${IOT_PASSWORD:}"
+  power-history-start: 2025-07-09T00:00:00+08:00
+  power-cache-seconds: 120
+  query-limit: 200000
+  # 数据中断超过该分钟数视为一次关机(数采模块随设备断电的场景)
+  gap-minutes: 20
+  # 开关机表默认展示范围(天), 0 表示全部历史
+  power-display-days: 0
+  pressure:
+    id: 9bb10ca0-40e7-11f0-bd5b-695fce6e7bf5
+    name: CZDG-985-42
+    label: 淬火线油烟治理系统
+  th:
+    id: 23f10b00-8c83-11f1-bd5b-695fce6e7bf5
+    name: CZDG-TH
+    label: 废气处理温湿度传感器
+
+

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>东港废气处理环境监测看板</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" v-cloak>
+  <header class="topbar">
+    <div class="brand">
+      <h1>东港废气处理环境监测看板</h1>
+    </div>
+    <div class="toolbar">
+      <span class="stamp" v-if="generatedAt">最后更新 {{ generatedAt }}</span>
+      <label class="limit">
+        实时条数
+        <select v-model.number="limit" :disabled="dataMode !== ''" @change="refresh(false)">
+          <option :value="1">1</option>
+          <option :value="10">10</option>
+          <option :value="20">20</option>
+          <option :value="50">50</option>
+          <option :value="100">100</option>
+          <option :value="500">500</option>
+        </select>
+      </label>
+      <button class="btn" :disabled="loading" @click="refresh(true)">{{ loading ? '刷新中…' : '立即刷新' }}</button>
+      <span class="countdown">{{ countdown }}s 后自动刷新</span>
+    </div>
+  </header>
+
+  <div class="alert" v-if="error">{{ error }}</div>
+
+  <main class="grid">
+    <section class="card span2">
+      <div class="card-head">
+        <h2>淬火线油烟治理系统 · 开关机记录</h2>
+        <span class="meta">共 {{ powerRows.length }} 条</span>
+      </div>
+      <div class="filters">
+        <label class="range">
+          历史范围
+          <select v-model="rangeMode" @change="onRangeChange">
+            <option value="7">近 7 天</option>
+            <option value="30">近 30 天</option>
+            <option value="90">近 90 天</option>
+            <option value="180">近 180 天</option>
+            <option value="0">全部历史</option>
+            <option value="custom">自定义时间段</option>
+          </select>
+        </label>
+        <template v-if="rangeMode === 'custom'">
+          <label class="range">从 <input type="datetime-local" step="60" v-model="start"></label>
+          <label class="range">到 <input type="datetime-local" step="60" v-model="end"></label>
+          <button class="btn small" :disabled="loading" @click="queryPower">查询</button>
+          <button class="btn small ghost" :disabled="loading" @click="resetRange">重置</button>
+        </template>
+        <span class="span-text">数据范围：{{ powerSpan }}</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-seq">序号</th>
+              <th>开机时间</th>
+              <th>关机时间</th>
+              <th>运行时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in powerRows" :key="row.startTs">
+              <td>{{ row.seq }}</td>
+              <td>{{ row.startTime }}</td>
+              <td>
+                <span v-if="row.running" class="tag running">运行中</span>
+                <span v-else>{{ row.endTime }}</span>
+              </td>
+              <td :class="{ live: row.running }">{{ durationOf(row) }}</td>
+            </tr>
+            <tr v-if="!powerRows.length"><td colspan="4" class="empty">暂无数据</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>淬火线油烟治理系统 · 实时检测数据</h2>
+        <span class="meta">共 {{ pressureRows.length }} 条</span>
+      </div>
+      <div class="filters">
+        <label class="range">
+          时间范围
+          <select v-model="dataMode" @change="onDataRangeChange">
+            <option value="">最近数据</option>
+            <option value="1">近 1 天</option>
+            <option value="3">近 3 天</option>
+            <option value="7">近 7 天</option>
+            <option value="30">近 30 天</option>
+            <option value="custom">自定义时间段</option>
+          </select>
+        </label>
+        <template v-if="dataMode === 'custom'">
+          <label class="range">从 <input type="datetime-local" step="60" v-model="dataStart"></label>
+          <label class="range">到 <input type="datetime-local" step="60" v-model="dataEnd"></label>
+          <button class="btn small" :disabled="loading" @click="queryData">查询</button>
+          <button class="btn small ghost" :disabled="loading" @click="resetDataRange">重置</button>
+        </template>
+        <span class="span-text">数据范围：{{ pressureSpan }}</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-seq">序号</th>
+              <th>设备名称</th>
+              <th>压差1</th>
+              <th>压差2</th>
+              <th>采集时间</th>
+              <th>设备状态</th>
+              <th class="col-op">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in pressureRows" :key="row.seq">
+              <td>{{ row.seq }}</td>
+              <td>{{ row.deviceName }}</td>
+              <td class="num">{{ display(row.diff1) }}</td>
+              <td class="num">{{ display(row.diff2) }}</td>
+              <td>{{ row.collectTime }}</td>
+              <td><span class="tag" :class="row.statusText === '运行中' ? 'running' : 'stopped'">{{ row.statusText }}</span></td>
+              <td><button class="link" @click="openPressureDetail(row)">详情</button></td>
+            </tr>
+            <tr v-if="!pressureRows.length"><td colspan="7" class="empty">暂无数据</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>废气处理温湿度传感器 · 实时数据</h2>
+        <span class="meta">共 {{ thRows.length }} 条</span>
+      </div>
+      <div class="filters">
+        <label class="range">
+          时间范围
+          <select v-model="dataMode" @change="onDataRangeChange">
+            <option value="">最近数据</option>
+            <option value="1">近 1 天</option>
+            <option value="3">近 3 天</option>
+            <option value="7">近 7 天</option>
+            <option value="30">近 30 天</option>
+            <option value="custom">自定义时间段</option>
+          </select>
+        </label>
+        <template v-if="dataMode === 'custom'">
+          <label class="range">从 <input type="datetime-local" step="60" v-model="dataStart"></label>
+          <label class="range">到 <input type="datetime-local" step="60" v-model="dataEnd"></label>
+          <button class="btn small" :disabled="loading" @click="queryData">查询</button>
+          <button class="btn small ghost" :disabled="loading" @click="resetDataRange">重置</button>
+        </template>
+        <span class="span-text">数据范围：{{ thSpan }}</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-seq">序号</th>
+              <th>设备名称</th>
+              <th>温度</th>
+              <th>湿度</th>
+              <th>采集时间</th>
+              <th class="col-op">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in thRows" :key="row.seq">
+              <td>{{ row.seq }}</td>
+              <td>{{ row.deviceName }}</td>
+              <td class="num">{{ display(row.temperature) }}</td>
+              <td class="num">{{ display(row.humidity) }}</td>
+              <td>{{ row.collectTime }}</td>
+              <td><button class="link" @click="openThDetail(row)">详情</button></td>
+            </tr>
+            <tr v-if="!thRows.length"><td colspan="6" class="empty">暂无数据</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-mask" v-if="detail.visible" @click.self="closeDetail">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>{{ detail.title }}</h3>
+        <button class="btn ghost" @click="closeDetail">关闭</button>
+      </div>
+      <div class="modal-body">
+        <table class="raw">
+          <thead><tr><th>字段</th><th>原始值</th><th>数据时间</th></tr></thead>
+          <tbody>
+            <tr v-for="item in detail.rows" :key="item.key">
+              <td>{{ item.key }}</td>
+              <td class="num">{{ item.value === '' || item.value === null ? '(空)' : item.value }}</td>
+              <td>{{ item.time }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="vendor/vue.global.prod.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
