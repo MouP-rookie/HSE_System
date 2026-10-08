@@ -11,13 +11,20 @@
 
 ## 启动
 
-双击 `start.cmd`，或在项目根目录执行：
+方式一：双击 `start.cmd`。脚本每次都会先执行一次构建，再启动服务，所以改完配置直接双击即可生效。
+
+方式二：在项目根目录（`pom.xml` 所在目录）用命令构建并运行：
 
 ```
-mvn -B spring-boot:run
+mvn -B -DskipTests package
+java -Dfile.encoding=UTF-8 -jar target/hse-iot-demo-0.0.1-SNAPSHOT.jar
 ```
 
-浏览器打开 <http://localhost:8080>。
+构建产物 `target/hse-iot-demo-0.0.1-SNAPSHOT.jar` 是 Spring Boot 可执行 jar，用 `java -jar` 直接运行即可。
+
+方式三：开发时直接执行 `mvn -B spring-boot:run`，或在 IDEA 里运行 `HseIotDemoApplication`。
+
+浏览器打开 <http://localhost:8080>（默认端口）。改端口：编辑 `src/main/resources/application.yml` 里的 `server.port`，然后重新构建；也可以用 `java -jar target/hse-iot-demo-0.0.1-SNAPSHOT.jar --server.port=8000` 临时覆盖，无需重新构建。配置文件是打进 jar 里的，所以改完配置必须重新执行一次 `mvn package`（用 `start.cmd` 启动会自动重建）。
 
 仓库里不含 IoT 平台账号密码：请在项目根目录创建 `application-local.yml`（已被 `.gitignore` 忽略，不会提交），或设置环境变量 `IOT_USERNAME` / `IOT_PASSWORD`：
 
