@@ -36,6 +36,23 @@ iot:
 
 首次构建需要联网下载依赖。项目内的 `maven-settings.xml` 通过 `.mvn/maven.config` 自动生效，把中央仓库指向 `repo1.maven.org`（本机访问 `repo.maven.apache.org` 会 SSL 失败）。
 
+## 拷贝到其他电脑运行
+
+只想运行、不重新构建：把这两个文件拷到同一目录，目标电脑装好 Java 21 以上即可（jar 里已包含前端和全部依赖，不需要 Node/npm，也不需要 Maven）：
+
+```
+hse-iot-demo-0.0.1-SNAPSHOT.jar   在 target 目录里
+application-local.yml             IoT 平台账号密码, 不入库
+```
+
+```
+java -Dfile.encoding=UTF-8 -jar hse-iot-demo-0.0.1-SNAPSHOT.jar
+```
+
+换端口加启动参数即可：`java -jar hse-iot-demo-0.0.1-SNAPSHOT.jar --server.port=8000`。缺少 `application-local.yml` 时启动正常，但登录 IoT 平台会报 401。
+
+想在新电脑上重新构建：拷贝整个项目目录（`target`、`.idea` 不用拷，也可以直接 `git clone`），目标电脑装好 JDK 21+ 和 Maven，然后在项目根目录双击 `start.cmd`，或执行 `mvn -B -DskipTests package`。
+
 ## 页面结构
 
 1. 淬火线油烟治理系统 · 开关机记录：序号、开机时间、关机时间、运行时间。正在运行的记录关机时间显示「运行中」，运行时间按秒跳动。工具栏的「历史范围」可切换近 7 / 30 / 90 / 180 天、全部历史或自定义时间段（选「自定义时间段」后填开始/结束时间再点查询），右侧实时显示当前表格实际覆盖的数据范围。
